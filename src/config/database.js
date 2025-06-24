@@ -13,7 +13,6 @@ export const config = {
         waitForConnections: true,
         connectionLimit: 10,
         queueLimit: 0,
-        idleTimeout: 60000,
-        acquireTimeout: 60000
+        idleTimeout: 60000
     }
 }; 

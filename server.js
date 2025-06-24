@@ -127,7 +127,7 @@ app.get('/api/scraping/history', async (req, res) => {
         const allLimits = getAllLimitCodes();
         
         for (const log of logs) {
-            const logTime = new Date(log.scraping_datetime).getTime();
+            const logTime = new Date(log.scraping_datetime + 'Z').getTime();
             const timeKey = Math.floor(logTime / (2 * 60 * 1000)); // Группируем по 2-минутным интервалам
             
             if (processedTimes.has(timeKey)) {
@@ -138,7 +138,7 @@ app.get('/api/scraping/history', async (req, res) => {
             
             // Находим все логи в этом временном окне
             const runLogs = logs.filter(l => {
-                const lTime = new Date(l.scraping_datetime).getTime();
+                const lTime = new Date(l.scraping_datetime + 'Z').getTime();
                 return Math.abs(lTime - logTime) <= 2 * 60 * 1000; // В пределах 2 минут
             });
             
@@ -146,12 +146,13 @@ app.get('/api/scraping/history', async (req, res) => {
             
             // Создаем объект запуска
             const run = {
-                startTime: new Date(Math.min(...runLogs.map(l => new Date(l.scraping_datetime).getTime()))),
+                startTime: new Date(Math.min(...runLogs.map(l => new Date(l.scraping_datetime + 'Z').getTime()))),
                 limits: {},
                 totalFound: 0,
                 totalSaved: 0,
                 success: runLogs.every(l => l.database_success),
-                duration: Math.max(...runLogs.map(l => l.execution_time_ms || 0))
+                duration: Math.max(...runLogs.map(l => l.execution_time_ms || 0)),
+                logId: log.id
             };
             
             // Инициализируем все лимиты
@@ -186,8 +187,8 @@ app.get('/api/scraping/history', async (req, res) => {
             }
         }
         
-        // Сортируем по времени (новые сверху)
-        groupedRuns.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+        // Сортируем по ID (новые сверху)
+        groupedRuns.sort((a, b) => b.logId - a.logId);
         
         // Вычисляем интервалы между успешными запусками
         let lastSuccessfulTime = null;

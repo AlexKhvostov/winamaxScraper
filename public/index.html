@@ -582,7 +582,7 @@
         }
 
         function addLog(message, type = 'info') {
-            const timestamp = new Date().toLocaleTimeString('ru-RU');
+            const timestamp = new Date().toLocaleTimeString('ru-RU', { timeZone: 'UTC' });
             const logEntry = {
                 message: `[${timestamp}] ${message}`,
                 type: type,

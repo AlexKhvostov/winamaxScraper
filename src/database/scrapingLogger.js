@@ -48,7 +48,7 @@ class ScrapingLogger {
             const [result] = await this.connection.execute(query, [
                 scrapingDate,
                 scrapingTime,
-                now,
+                now.toISOString(),
                 limitValue
             ]);
             
@@ -140,7 +140,7 @@ class ScrapingLogger {
             const [result] = await this.connection.execute(query, [
                 scrapingDate,
                 scrapingTime,
-                now,
+                now.toISOString(),
                 limitValue,
                 results.playersFound || 0,
                 results.playersSaved || 0,
