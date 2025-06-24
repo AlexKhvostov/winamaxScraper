@@ -1,0 +1,36 @@
+{
+  "name": "winamax-scraper",
+  "version": "1.0.0",
+  "description": "Winamax Expresso Data Scraper",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "scrape": "node start-scraping.js",
+    "test": "node src/index.js test",
+    "timezone-info": "node src/index.js timezone-info",
+    "limits": "node src/index.js limits-file",
+    "whitelist": "node src/index.js whitelist",
+    "points-filter": "node src/index.js points-filter",
+    "duplicate-check": "node src/index.js duplicate-check",
+    "logs": "node src/index.js scraping-logs recent"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "express": "^4.21.2",
+    "mysql2": "^3.6.5",
+    "node-cron": "^3.0.3",
+    "puppeteer": "^21.6.1",
+    "winston": "^3.11.0"
+  },
+  "keywords": [
+    "winamax",
+    "scraper",
+    "poker",
+    "expresso",
+    "data-collection"
+  ],
+  "author": "Red Party",
+  "license": "ISC"
+}
