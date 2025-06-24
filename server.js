@@ -6,12 +6,16 @@ import { logger } from './src/utils/logger.js';
 import { runFullScraping } from './src/index.js';
 import { isScraperRunning } from './src/utils/lockFile.js';
 import { getMilanTime, getMilanDateTime } from './src/utils/timezone.js';
+import ScrapingLogger from './src/database/scrapingLogger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Инициализация ScrapingLogger
+const scrapingLogger = new ScrapingLogger();
 
 // Middleware
 app.use(express.json());
@@ -92,6 +96,114 @@ app.get('/api/health', (req, res) => {
         timestamp: new Date().toISOString(),
         uptime: process.uptime()
     });
+});
+
+// API для получения истории запусков скрапера
+app.get('/api/scraping/history', async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 150;
+        const logs = await scrapingLogger.getRecentLogs(limit * 3); // Получаем больше записей для группировки
+        
+        // Группируем логи по времени запуска (в пределах 2 минут считаем одним запуском)
+        const groupedRuns = [];
+        const processedTimes = new Set();
+        
+        // Все возможные лимиты
+        const allLimits = ['0.25', '0.5', '1-1.5', '2-3', '4-7', '8-15', '16-25', '50', '100', '250', '500'];
+        
+        for (const log of logs) {
+            const logTime = new Date(log.scraping_datetime).getTime();
+            const timeKey = Math.floor(logTime / (2 * 60 * 1000)); // Группируем по 2-минутным интервалам
+            
+            if (processedTimes.has(timeKey)) {
+                continue;
+            }
+            
+            processedTimes.add(timeKey);
+            
+            // Находим все логи в этом временном окне
+            const runLogs = logs.filter(l => {
+                const lTime = new Date(l.scraping_datetime).getTime();
+                return Math.abs(lTime - logTime) <= 2 * 60 * 1000; // В пределах 2 минут
+            });
+            
+            if (runLogs.length === 0) continue;
+            
+            // Создаем объект запуска
+            const run = {
+                startTime: new Date(Math.min(...runLogs.map(l => new Date(l.scraping_datetime).getTime()))),
+                limits: {},
+                totalFound: 0,
+                totalSaved: 0,
+                success: runLogs.every(l => l.database_success),
+                duration: Math.max(...runLogs.map(l => l.execution_time_ms || 0))
+            };
+            
+            // Инициализируем все лимиты
+            allLimits.forEach(limit => {
+                run.limits[limit] = {
+                    processed: false,
+                    found: 0,
+                    saved: 0,
+                    success: false
+                };
+            });
+            
+            // Заполняем данные по обработанным лимитам
+            runLogs.forEach(log => {
+                const limitValue = log.limit_value;
+                if (run.limits[limitValue]) {
+                    run.limits[limitValue] = {
+                        processed: true,
+                        found: log.players_found || 0,
+                        saved: log.players_saved || 0,
+                        success: log.database_success || false
+                    };
+                    run.totalFound += log.players_found || 0;
+                    run.totalSaved += log.players_saved || 0;
+                }
+            });
+            
+            groupedRuns.push(run);
+            
+            if (groupedRuns.length >= limit) {
+                break;
+            }
+        }
+        
+        // Сортируем по времени (новые сверху)
+        groupedRuns.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+        
+        // Вычисляем интервалы между успешными запусками
+        let lastSuccessfulTime = null;
+        groupedRuns.forEach(run => {
+            if (run.success && lastSuccessfulTime) {
+                const intervalMinutes = Math.floor((lastSuccessfulTime - new Date(run.startTime)) / (1000 * 60));
+                run.intervalFromPrevious = intervalMinutes;
+                run.isDelayed = intervalMinutes > 10; // Помечаем как задержанный если > 10 минут
+            } else {
+                run.intervalFromPrevious = null;
+                run.isDelayed = false;
+            }
+            
+            if (run.success) {
+                lastSuccessfulTime = new Date(run.startTime);
+            }
+        });
+        
+        res.json({
+            runs: groupedRuns.slice(0, limit),
+            total: groupedRuns.length,
+            allLimits: allLimits
+        });
+        
+    } catch (error) {
+        logger.error('Ошибка получения истории запусков:', error);
+        res.status(500).json({
+            error: 'Ошибка получения истории запусков',
+            details: error.message
+        });
+    }
 });
 
 // Функция запуска скрапинга

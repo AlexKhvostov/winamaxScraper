@@ -153,6 +153,127 @@
             color: #666;
         }
 
+        /* Стили для таблицы истории запусков */
+        .history-section {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .history-header h3 {
+            color: #333;
+            margin: 0;
+        }
+
+        .refresh-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .history-table th,
+        .history-table td {
+            padding: 8px 6px;
+            text-align: center;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: middle;
+        }
+
+        .history-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .history-table th:first-child {
+            text-align: left;
+            min-width: 120px;
+        }
+
+        .history-table td:first-child {
+            text-align: left;
+            font-weight: 500;
+        }
+
+        .limit-cell {
+            font-size: 0.75rem;
+            min-width: 60px;
+        }
+
+        .limit-processed {
+            color: #4CAF50;
+            font-weight: 600;
+        }
+
+        .limit-not-processed {
+            color: #ccc;
+            font-weight: 400;
+        }
+
+        .status-success {
+            color: #4CAF50;
+            font-weight: 600;
+        }
+
+        .status-error {
+            color: #f44336;
+            font-weight: 600;
+        }
+
+        .interval-normal {
+            color: #666;
+        }
+
+        .interval-delayed {
+            color: #f44336;
+            font-weight: 600;
+            background-color: #ffebee;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .table-container {
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+        }
+
+        .totals-cell {
+            font-weight: 600;
+            color: #333;
+            min-width: 80px;
+        }
+
         @media (max-width: 768px) {
             .header h1 {
                 font-size: 2rem;
@@ -160,6 +281,24 @@
             
             .dashboard {
                 grid-template-columns: 1fr;
+            }
+            
+            .history-table {
+                font-size: 0.7rem;
+            }
+            
+            .history-table th,
+            .history-table td {
+                padding: 4px 2px;
+            }
+            
+            .limit-cell {
+                font-size: 0.65rem;
+                min-width: 45px;
+            }
+            
+            .table-container {
+                max-height: 400px;
             }
         }
     </style>
@@ -228,6 +367,41 @@
                     <span class="metric-label">Последняя ошибка:</span>
                     <span class="metric-value" id="last-error">-</span>
                 </div>
+            </div>
+        </div>
+
+        <div class="history-section">
+            <div class="history-header">
+                <h3>📊 История запусков скрапера</h3>
+                <button class="refresh-btn" onclick="updateHistory()">🔄 Обновить</button>
+            </div>
+            <div class="table-container">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Время запуска</th>
+                            <th>Интервал</th>
+                            <th>0.25€</th>
+                            <th>0.5€</th>
+                            <th>1-1.5€</th>
+                            <th>2-3€</th>
+                            <th>4-7€</th>
+                            <th>8-15€</th>
+                            <th>16-25€</th>
+                            <th>50€</th>
+                            <th>100€</th>
+                            <th>250€</th>
+                            <th>500€</th>
+                            <th>Статус</th>
+                            <th>Найдено/Занесено</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-tbody">
+                        <tr>
+                            <td colspan="15" class="loading">Загрузка истории запусков...</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -359,13 +533,83 @@
             ).join('');
         }
 
+        async function updateHistory() {
+            try {
+                const response = await fetch('/api/scraping/history?limit=150');
+                const data = await response.json();
+                
+                const tbody = document.getElementById('history-tbody');
+                
+                if (!data.runs || data.runs.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="15" class="loading">Нет данных о запусках</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = data.runs.map(run => {
+                    const startTime = new Date(run.startTime);
+                    const timeStr = startTime.toLocaleString('ru-RU', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    
+                    // Интервал
+                    let intervalCell = '';
+                    if (run.intervalFromPrevious !== null) {
+                        const intervalClass = run.isDelayed ? 'interval-delayed' : 'interval-normal';
+                        intervalCell = `<span class="${intervalClass}">${run.intervalFromPrevious}м</span>`;
+                    } else {
+                        intervalCell = '<span class="interval-normal">-</span>';
+                    }
+                    
+                    // Лимиты
+                    const limitCells = data.allLimits.map(limit => {
+                        const limitData = run.limits[limit];
+                        if (limitData.processed) {
+                            const className = limitData.success ? 'limit-processed' : 'status-error';
+                            return `<td class="limit-cell ${className}">✅ ${limitData.found}/${limitData.saved}</td>`;
+                        } else {
+                            return `<td class="limit-cell limit-not-processed">-</td>`;
+                        }
+                    }).join('');
+                    
+                    // Статус
+                    const statusClass = run.success ? 'status-success' : 'status-error';
+                    const statusText = run.success ? '✅ Успешно' : '❌ Ошибка';
+                    
+                    // Общие итоги
+                    const totals = `${run.totalFound}/${run.totalSaved}`;
+                    
+                    return `
+                        <tr ${run.isDelayed ? 'style="background-color: #fff5f5;"' : ''}>
+                            <td>${timeStr}</td>
+                            <td>${intervalCell}</td>
+                            ${limitCells}
+                            <td class="${statusClass}">${statusText}</td>
+                            <td class="totals-cell">${totals}</td>
+                        </tr>
+                    `;
+                }).join('');
+                
+            } catch (error) {
+                console.error('Ошибка получения истории:', error);
+                const tbody = document.getElementById('history-tbody');
+                tbody.innerHTML = '<tr><td colspan="15" class="loading" style="color: #f44336;">Ошибка загрузки истории</td></tr>';
+            }
+        }
+
         // Инициализация
         document.addEventListener('DOMContentLoaded', function() {
             addLog('Панель мониторинга загружена', 'info');
             updateStatus();
+            updateHistory();
             
             // Обновляем статус каждые 5 секунд
             setInterval(updateStatus, 5000);
+            
+            // Обновляем историю каждые 5 минут
+            setInterval(updateHistory, 5 * 60 * 1000);
         });
     </script>
 </body>
