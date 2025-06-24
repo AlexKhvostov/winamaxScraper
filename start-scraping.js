@@ -3,7 +3,7 @@ import { WinamaxScraper } from './src/scrapers/winamaxScraper.js';
 import { MySQLService } from './src/database/mysql.js';
 import { logger } from './src/utils/logger.js';
 import { createLockFile, removeLockFile, setupLockFileCleanup, isScraperRunning } from './src/utils/lockFile.js';
-import { getTimezoneInfo, formatMilanDate } from './src/utils/timezone.js';
+import { getTimezoneInfo } from './src/utils/timezone.js';
 
 console.log('🚀 Запуск автоматического скрапинга Winamax Expresso');
 console.log('⏰ Сбор данных каждые 10 минут');
@@ -42,7 +42,10 @@ async function runScraping() {
     
     try {
         const timezoneInfo = getTimezoneInfo();
-        logger.info(`[SCHEDULER] 🚀 Начинаем автоматический сбор данных (${timezoneInfo.currentTime})`);
+        const startTimeUTC = new Date().toISOString();
+        logger.info(`[SCHEDULER] 🚀 Начинаем автоматический сбор данных`);
+        logger.info(`[SCHEDULER] ⏰ Время запуска (UTC): ${startTimeUTC}`);
+        logger.info(`[SCHEDULER] 🇮🇹 Время Милана: ${timezoneInfo.currentTime}`);
         
         const scraper = new WinamaxScraper();
         const database = new MySQLService();

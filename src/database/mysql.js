@@ -21,8 +21,8 @@ class MySQLService {
                 waitForConnections: true,
                 connectionLimit: 10,
                 queueLimit: 0,
+                idleTimeout: 60000,
                 acquireTimeout: 60000,
-                timeout: 60000,
                 multipleStatements: true
             });
 
@@ -153,6 +153,12 @@ class MySQLService {
 
                     await this.pool.execute(query, values);
                     insertedCount++;
+                    
+                    // Логируем время записи в БД для первой записи каждого лимита
+                    if (insertedCount === 1) {
+                        const dbWriteTimeUTC = new Date().toISOString();
+                        logger.info(`💾 Время записи в БД (UTC): ${dbWriteTimeUTC} для лимита ${row.tournament_limit}`);
+                    }
                 } catch (rowError) {
                     errorsCount++;
                     logger.error(`Ошибка вставки записи ${row.player_name || 'unknown'}:`, rowError.message);
@@ -162,10 +168,12 @@ class MySQLService {
             
             const totalRecords = data.length;
             
+            const processingEndTimeUTC = new Date().toISOString();
             logger.info(`Обработано ${totalRecords} записей для лимита ${data[0]?.tournament_limit}:`);
             logger.info(`  ✅ Вставлено: ${insertedCount}`);
             logger.info(`  ⏭️ Пропущено дубликатов: ${duplicatesCount}`);
             logger.info(`  ❌ Ошибок: ${errorsCount}`);
+            logger.info(`⏱️ Время завершения записи в БД (UTC): ${processingEndTimeUTC}`);
             
             // Обновляем метаданные
             await this.updateScrapingMetadata(data[0]?.tournament_limit, true);

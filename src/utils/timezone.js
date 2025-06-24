@@ -3,20 +3,7 @@
  * Учитывает сброс очков в полночь по времени Милана
  */
 
-/**
- * Получает текущую дату и время в часовом поясе Милана
- * @returns {Date} Дата в часовом поясе Милана
- */
-export function getMilanTime() {
-    const timezone = process.env.TIMEZONE || 'Europe/Rome';
-    
-    // Создаем дату в часовом поясе Милана
-    const milanDate = new Date().toLocaleString("en-US", {
-        timeZone: timezone
-    });
-    
-    return new Date(milanDate);
-}
+
 
 /**
  * Получает дату в часовом поясе Милана без времени (только дата)
@@ -35,18 +22,7 @@ export function getMilanDateOnly(date = null) {
     return milanDateStr; // Формат YYYY-MM-DD
 }
 
-/**
- * Проверяет, произошел ли переход через полночь между двумя датами
- * @param {Date} date1 - первая дата
- * @param {Date} date2 - вторая дата
- * @returns {boolean} true если даты в разных днях по времени Милана
- */
-export function isMidnightCrossed(date1, date2) {
-    const milanDate1 = getMilanDateOnly(date1);
-    const milanDate2 = getMilanDateOnly(date2);
-    
-    return milanDate1 !== milanDate2;
-}
+
 
 /**
  * Получает время в часовом поясе Милана в формате HH:MM:SS
@@ -100,51 +76,7 @@ export function isNearMidnight(date = null) {
     return (hour === 23 && minute >= 30) || (hour === 0 && minute <= 30);
 }
 
-/**
- * Вычисляет разность очков с учетом возможного сброса в полночь
- * @param {number} currentPoints - текущие очки
- * @param {number} previousPoints - предыдущие очки
- * @param {Date} currentDate - дата текущих очков
- * @param {Date} previousDate - дата предыдущих очков
- * @returns {number} Разность очков (положительная или 0)
- */
-export function calculatePointsDifference(currentPoints, previousPoints, currentDate, previousDate) {
-    const handleMidnightReset = process.env.HANDLE_MIDNIGHT_RESET === 'true';
-    
-    if (!handleMidnightReset) {
-        return currentPoints - previousPoints;
-    }
-    
-    // Проверяем, произошел ли переход через полночь
-    const midnightCrossed = isMidnightCrossed(previousDate, currentDate);
-    
-    if (midnightCrossed) {
-        // Если переход через полночь, считаем что очки сбросились
-        // Возвращаем только текущие очки (как будто предыдущих было 0)
-        return currentPoints;
-    }
-    
-    // Обычная разность
-    const difference = currentPoints - previousPoints;
-    
-    // Если разность отрицательная и большая, возможно был сброс
-    if (difference < -100) {
-        // Вероятно произошел сброс, возвращаем текущие очки
-        return currentPoints;
-    }
-    
-    return Math.max(0, difference); // Не возвращаем отрицательные значения
-}
 
-/**
- * Форматирует дату для логов в часовом поясе Милана
- * @param {Date} date - дата для форматирования (опционально)
- * @returns {string} Форматированная дата
- */
-export function formatMilanDate(date = null) {
-    const targetDate = date || new Date();
-    return `${getMilanDateTime(targetDate)} (Milan time)`;
-}
 
 /**
  * Получает информацию о часовом поясе

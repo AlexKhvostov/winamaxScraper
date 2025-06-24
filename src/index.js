@@ -17,7 +17,7 @@ import {
     clearWhitelist, 
     printWhitelistStatus 
 } from './utils/whitelist.js';
-import { getTimezoneInfo, formatMilanDate } from './utils/timezone.js';
+import { getTimezoneInfo } from './utils/timezone.js';
 
 // Загружаем переменные окружения
 dotenv.config();
@@ -94,7 +94,9 @@ async function showTimezoneInfo() {
 }
 
 async function testScraping() {
+    const startTimeUTC = new Date().toISOString();
     logger.info('🧪 Тестовый сбор данных');
+    logger.info(`⏰ Время запуска (UTC): ${startTimeUTC}`);
     
     try {
         const scraper = new WinamaxScraper();
@@ -484,6 +486,9 @@ async function manageScrapingLogs(subCommand, ...args) {
 
 // Экспортируем функцию для использования в server.js
 export async function runFullScraping() {
+    const startTimeUTC = new Date().toISOString();
+    logger.info(`⏰ Время запуска скрапера (UTC): ${startTimeUTC}`);
+    
     const scraper = new WinamaxScraper();
     const database = new MySQLService();
     

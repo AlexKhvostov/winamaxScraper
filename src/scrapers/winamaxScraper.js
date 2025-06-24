@@ -69,6 +69,7 @@ export class WinamaxScraper {
             // Извлекаем данные игроков
             const allPlayers = await this.page.evaluate((minPointsFilter) => {
                 const playersData = [];
+                const seenRanks = new Set(); // Для проверки уникальности рангов
                 
                 // Находим все строки с игроками
                 const playerRows = document.querySelectorAll('.sc-khIgEk.hQhHpX .sc-cOifOu, .sc-khIgEk.hQhHpX .sc-jcwpoC');
@@ -86,8 +87,9 @@ export class WinamaxScraper {
                             const points = parseFloat(pointsElements[0].textContent.trim());
                             const guarantee = pointsElements[1].textContent.trim();
                             
-                            // Проверяем, что данные валидны И у игрока больше минимального количества очков
-                            if (!isNaN(rank) && name && !isNaN(points) && points > minPointsFilter) {
+                            // Проверяем, что данные валидны, у игрока больше минимального количества очков И ранг уникален
+                            if (!isNaN(rank) && name && !isNaN(points) && points > minPointsFilter && !seenRanks.has(rank)) {
+                                seenRanks.add(rank); // Добавляем ранг в множество уникальных
                                 playersData.push({
                                     rank,
                                     name,
@@ -97,7 +99,7 @@ export class WinamaxScraper {
                             }
                         }
                     } catch (error) {
-                        console.log('Ошибка парсинга строки:', error);
+                        logger.warn('Ошибка парсинга строки:', error);
                     }
                 });
                 

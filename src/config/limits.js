@@ -157,6 +157,14 @@ export function getAllLimits() {
 }
 
 /**
+ * Получает массив всех кодов лимитов в правильном порядке
+ * @returns {Array} массив кодов лимитов
+ */
+export function getAllLimitCodes() {
+    return ['0.25', '0.5', '1-1.5', '2-3', '4-7', '8-15', '16-25', '50', '100', '250', '500'];
+}
+
+/**
  * Выводит статус всех лимитов
  */
 export function printLimitsStatus() {

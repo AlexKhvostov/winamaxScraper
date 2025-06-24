@@ -5,7 +5,8 @@ import path from 'path';
 import { logger } from './src/utils/logger.js';
 import { runFullScraping } from './src/index.js';
 import { isScraperRunning } from './src/utils/lockFile.js';
-import { getMilanTime, getMilanDateTime } from './src/utils/timezone.js';
+import { getMilanDateTime } from './src/utils/timezone.js';
+import { getAllLimitCodes } from './src/config/limits.js';
 import ScrapingLogger from './src/database/scrapingLogger.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -32,6 +33,13 @@ let scrapingStats = {
     lastError: null
 };
 
+// Время запуска сервера и местоположение
+const serverStartTime = new Date().toISOString();
+const serverLocation = {
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    country: 'Unknown'
+};
+
 // Main route for monitoring interface
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -44,15 +52,22 @@ app.get('/public/index.html', (req, res) => {
 
 // API Routes
 app.get('/api/status', (req, res) => {
+    const now = new Date();
+    const startTime = new Date(serverStartTime);
+    const uptimeMs = now.getTime() - startTime.getTime();
+    
     res.json({
         status: 'running',
         server: 'Winamax Analytics Scraper',
-        time: new Date().toISOString(),
+        time: now.toISOString(),
         milanTime: getMilanDateTime(),
         isScrapingRunning: isCurrentlyRunning,
         lastScrapingTime,
         lastScrapingResult,
-        stats: scrapingStats
+        stats: scrapingStats,
+        serverStartTime: serverStartTime,
+        uptime: uptimeMs,
+        location: serverLocation
     });
 });
 
@@ -109,7 +124,7 @@ app.get('/api/scraping/history', async (req, res) => {
         const processedTimes = new Set();
         
         // Все возможные лимиты (в правильном порядке)
-        const allLimits = ['0.25', '0.5', '1-1.5', '2-3', '4-7', '8-15', '16-25', '50', '100', '250', '500'];
+        const allLimits = getAllLimitCodes();
         
         for (const log of logs) {
             const logTime = new Date(log.scraping_datetime).getTime();
@@ -293,8 +308,10 @@ async function runScrapingTask() {
     lastScrapingTime = new Date().toISOString();
     scrapingStats.totalRuns++;
 
+    const startTimeUTC = new Date().toISOString();
     logger.info('🚀 Запуск автоматического сбора данных');
-    logger.info(`⏰ Время Милана: ${getMilanDateTime()}`);
+    logger.info(`⏰ Время запуска (UTC): ${startTimeUTC}`);
+    logger.info(`🇮🇹 Время Милана: ${getMilanDateTime()}`);
 
     try {
         const result = await runFullScraping();

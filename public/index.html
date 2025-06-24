@@ -325,6 +325,14 @@
                     <span class="metric-value" id="uptime">-</span>
                 </div>
                 <div class="metric">
+                    <span class="metric-label">Время запуска:</span>
+                    <span class="metric-value" id="server-start-time">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Местоположение:</span>
+                    <span class="metric-value" id="server-location">-</span>
+                </div>
+                <div class="metric">
                     <span class="metric-label">Время Милана:</span>
                     <span class="metric-value" id="milan-time">-</span>
                 </div>
@@ -375,12 +383,12 @@
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
                 <div>
                     <div class="metric">
-                        <span class="metric-label">Всего записей:</span>
-                        <span class="metric-value" id="total-records">-</span>
+                        <span class="metric-label" title="Количество уникальных ников игроков в базе данных">🎯 Уникальных игроков:</span>
+                        <span class="metric-value" id="unique-players" style="color: #4CAF50; font-weight: bold;">-</span>
                     </div>
                     <div class="metric">
-                        <span class="metric-label">Уникальных игроков:</span>
-                        <span class="metric-value" id="unique-players">-</span>
+                        <span class="metric-label" title="Общее количество записей в БД (один игрок может иметь много записей)">Всего записей:</span>
+                        <span class="metric-value" id="total-records">-</span>
                     </div>
                 </div>
                 <div>
@@ -389,7 +397,7 @@
                         <span class="metric-value" id="total-scraping-runs">-</span>
                     </div>
                     <div class="metric">
-                        <span class="metric-label">активные/всего игроков:</span>
+                        <span class="metric-label" title="Сумма всех найденных игроков за все запуски скрапера (включает повторы)">Всего найдено (все запуски):</span>
                         <span class="metric-value" id="total-found-saved">-</span>
                     </div>
                 </div>
@@ -415,7 +423,7 @@
                 <table class="history-table">
                     <thead>
                         <tr>
-                            <th>Время запуска</th>
+                            <th>Время UTC+0</th>
                             <th>Интервал</th>
                             <th>0.25€</th>
                             <th>0.5€</th>
@@ -429,7 +437,7 @@
                             <th>250€</th>
                             <th>500€</th>
                             <th>Статус</th>
-                            <th>активные/всего</th>
+                            <th>сохр./найд.</th>
                         </tr>
                     </thead>
                     <tbody id="history-tbody">
@@ -454,13 +462,40 @@
         
         function formatTime(timestamp) {
             if (!timestamp) return '-';
-            return new Date(timestamp).toLocaleString('ru-RU');
+            return new Date(timestamp).toLocaleString('ru-RU', { timeZone: 'UTC' });
+        }
+
+        function formatTimeUTC(timestamp) {
+            if (!timestamp) return '-';
+            const date = new Date(timestamp);
+            return date.toISOString().replace('T', ' ').substring(0, 19);
         }
 
         function formatUptime(seconds) {
-            const hours = Math.floor(seconds / 3600);
+            const days = Math.floor(seconds / (24 * 3600));
+            const hours = Math.floor((seconds % (24 * 3600)) / 3600);
             const minutes = Math.floor((seconds % 3600) / 60);
-            return `${hours}ч ${minutes}м`;
+            const secs = Math.floor(seconds % 60);
+            
+            const dd = String(days).padStart(2, '0');
+            const hh = String(hours).padStart(2, '0');
+            const mm = String(minutes).padStart(2, '0');
+            const ss = String(secs).padStart(2, '0');
+            
+            return `${dd} дн. ${hh} ч. ${mm} м. ${ss} сек`;
+        }
+
+        // Переменная для хранения времени запуска сервера (UTC)
+        let serverStartTime = null;
+
+        function updateUptimeTicker() {
+            if (serverStartTime) {
+                // Используем UTC время для расчета
+                const now = new Date();
+                const uptimeMs = now.getTime() - new Date(serverStartTime).getTime();
+                const uptimeSeconds = Math.floor(uptimeMs / 1000);
+                document.getElementById('uptime').textContent = formatUptime(uptimeSeconds);
+            }
         }
 
         async function updateStatus() {
@@ -469,7 +504,13 @@
                 const data = await response.json();
                 
                 // Обновляем основную информацию
-                document.getElementById('uptime').textContent = formatUptime(data.uptime || 0);
+                if (data.serverStartTime) {
+                    serverStartTime = data.serverStartTime;
+                    updateUptimeTicker(); // Сразу обновляем время работы
+                }
+                document.getElementById('server-start-time').textContent = formatTimeUTC(data.serverStartTime);
+                document.getElementById('server-location').textContent = 
+                    data.location ? `${data.location.country} (${data.location.timezone})` : '-';
                 document.getElementById('milan-time').textContent = data.milanTime || '-';
                 
                 // Статус скрапинга
@@ -478,7 +519,7 @@
                     '<span class="status-indicator status-stopped"></span>Остановлен';
                 document.getElementById('scraping-status').innerHTML = scrapingStatus;
                 
-                document.getElementById('last-run').textContent = formatTime(data.lastScrapingTime);
+                document.getElementById('last-run').textContent = formatTimeUTC(data.lastScrapingTime);
                 
                 // Результат последнего запуска
                 if (data.lastScrapingResult) {
@@ -585,9 +626,9 @@
                 document.getElementById('total-scraping-runs').textContent = 
                     (scrapingRuns.total_scraping_runs || 0).toLocaleString('ru-RU');
                 document.getElementById('total-found-saved').textContent = 
-                    `${(scrapingRuns.total_players_found || 0).toLocaleString('ru-RU')}/${(scrapingRuns.total_players_saved || 0).toLocaleString('ru-RU')}`;
+                    (scrapingRuns.total_players_found || 0).toLocaleString('ru-RU');
                 
-                // Форматируем даты
+                // Форматируем даты в UTC
                 const formatDate = (dateStr) => {
                     if (!dateStr) return '-';
                     return new Date(dateStr).toLocaleString('ru-RU', {
@@ -595,7 +636,8 @@
                         month: '2-digit',
                         year: 'numeric',
                         hour: '2-digit',
-                        minute: '2-digit'
+                        minute: '2-digit',
+                        timeZone: 'UTC'
                     });
                 };
                 
@@ -625,7 +667,8 @@
                         day: '2-digit',
                         month: '2-digit',
                         hour: '2-digit',
-                        minute: '2-digit'
+                        minute: '2-digit',
+                        timeZone: 'UTC'
                     });
                     
                     // Интервал
@@ -642,7 +685,7 @@
                         const limitData = run.limits[limit];
                         if (limitData.processed) {
                             const className = limitData.success ? 'limit-processed' : 'status-error';
-                            return `<td class="limit-cell ${className}">✅ ${limitData.found}/${limitData.saved}</td>`;
+                            return `<td class="limit-cell ${className}">✅ ${limitData.saved}/${limitData.found}</td>`;
                         } else {
                             return `<td class="limit-cell limit-not-processed">⚪</td>`;
                         }
@@ -653,7 +696,7 @@
                     const statusText = run.success ? '✅ Успешно' : '❌ Ошибка';
                     
                     // Общие итоги
-                    const totals = `${run.totalFound}/${run.totalSaved}`;
+                    const totals = `${run.totalSaved}/${run.totalFound}`;
                     
                     return `
                         <tr ${run.isDelayed ? 'style="background-color: #fff5f5;"' : ''}>
@@ -688,6 +731,9 @@
             
             // Обновляем историю каждые 5 минут
             setInterval(updateHistory, 5 * 60 * 1000);
+            
+            // Тикер времени работы каждую секунду (UTC расчет)
+            setInterval(updateUptimeTicker, 1000);
         });
     </script>
 </body>

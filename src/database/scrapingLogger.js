@@ -32,9 +32,9 @@ class ScrapingLogger {
         try {
             await this.connect();
             
-            const now = new Date();
+            const now = new Date(); // UTC время
             const scrapingDate = now.toISOString().split('T')[0];
-            const scrapingTime = now.toTimeString().split(' ')[0];
+            const scrapingTime = now.toISOString().split('T')[1].split('.')[0]; // UTC время в формате HH:MM:SS
             
             const query = `
                 INSERT INTO scraping_logs (
@@ -225,7 +225,7 @@ class ScrapingLogger {
                     execution_time_ms,
                     created_at
                 FROM scraping_logs 
-                ORDER BY scraping_datetime DESC 
+                ORDER BY id DESC 
                 LIMIT ?
             `;
             
