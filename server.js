@@ -108,7 +108,7 @@ app.get('/api/scraping/history', async (req, res) => {
         const groupedRuns = [];
         const processedTimes = new Set();
         
-        // Все возможные лимиты
+        // Все возможные лимиты (в правильном порядке)
         const allLimits = ['0.25', '0.5', '1-1.5', '2-3', '4-7', '8-15', '16-25', '50', '100', '250', '500'];
         
         for (const log of logs) {
@@ -201,6 +201,76 @@ app.get('/api/scraping/history', async (req, res) => {
         logger.error('Ошибка получения истории запусков:', error);
         res.status(500).json({
             error: 'Ошибка получения истории запусков',
+            details: error.message
+        });
+    }
+});
+
+// API для получения общей статистики
+app.get('/api/stats', async (req, res) => {
+    try {
+        const connection = await scrapingLogger.connect();
+        
+        // Получаем статистику из основной таблицы с данными игроков
+        const [playerStats] = await connection.execute(`
+            SELECT 
+                COUNT(*) as total_records,
+                COUNT(DISTINCT player_name) as unique_players,
+                MIN(scraped_at) as first_record_date,
+                MAX(scraped_at) as last_record_date
+            FROM player_data
+        `);
+        
+        // Получаем статистику запусков скрапера
+        const [scrapingStats] = await connection.execute(`
+            SELECT 
+                COUNT(*) as total_scraping_runs,
+                COUNT(CASE WHEN database_success = 1 THEN 1 END) as successful_runs,
+                COUNT(CASE WHEN database_success = 0 THEN 1 END) as failed_runs,
+                MIN(scraping_datetime) as first_scraping_date,
+                MAX(scraping_datetime) as last_scraping_date,
+                SUM(players_found) as total_players_found,
+                SUM(players_saved) as total_players_saved
+            FROM scraping_logs
+        `);
+        
+        // Получаем статистику по лимитам
+        const [limitStats] = await connection.execute(`
+            SELECT 
+                limit_value,
+                COUNT(*) as runs_count,
+                SUM(players_found) as total_found,
+                SUM(players_saved) as total_saved,
+                COUNT(CASE WHEN database_success = 1 THEN 1 END) as successful_runs
+            FROM scraping_logs 
+            GROUP BY limit_value
+            ORDER BY 
+                CASE 
+                    WHEN limit_value = '0.25' THEN 1
+                    WHEN limit_value = '0.5' THEN 2
+                    WHEN limit_value = '1-1.5' THEN 3
+                    WHEN limit_value = '2-3' THEN 4
+                    WHEN limit_value = '4-7' THEN 5
+                    WHEN limit_value = '8-15' THEN 6
+                    WHEN limit_value = '16-25' THEN 7
+                    WHEN limit_value = '50' THEN 8
+                    WHEN limit_value = '100' THEN 9
+                    WHEN limit_value = '250' THEN 10
+                    WHEN limit_value = '500' THEN 11
+                    ELSE 12
+                END
+        `);
+        
+        res.json({
+            playerData: playerStats[0] || {},
+            scrapingRuns: scrapingStats[0] || {},
+            limitBreakdown: limitStats || []
+        });
+        
+    } catch (error) {
+        logger.error('Ошибка получения общей статистики:', error);
+        res.status(500).json({
+            error: 'Ошибка получения статистики',
             details: error.message
         });
     }

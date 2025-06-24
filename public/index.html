@@ -370,6 +370,42 @@
             </div>
         </div>
 
+        <div class="card" style="grid-column: 1 / -1; margin-bottom: 30px;">
+            <h3>📈 Общая статистика</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                <div>
+                    <div class="metric">
+                        <span class="metric-label">Всего записей:</span>
+                        <span class="metric-value" id="total-records">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Уникальных игроков:</span>
+                        <span class="metric-value" id="unique-players">-</span>
+                    </div>
+                </div>
+                <div>
+                    <div class="metric">
+                        <span class="metric-label">Всего запусков скрапера:</span>
+                        <span class="metric-value" id="total-scraping-runs">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Найдено/Сохранено игроков:</span>
+                        <span class="metric-value" id="total-found-saved">-</span>
+                    </div>
+                </div>
+                <div>
+                    <div class="metric">
+                        <span class="metric-label">Первая запись:</span>
+                        <span class="metric-value" id="first-record">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Последняя запись:</span>
+                        <span class="metric-value" id="last-record">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="history-section">
             <div class="history-header">
                 <h3>📊 История запусков скрапера</h3>
@@ -533,6 +569,44 @@
             ).join('');
         }
 
+        async function updateStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+                
+                // Обновляем основную статистику
+                const playerData = data.playerData || {};
+                const scrapingRuns = data.scrapingRuns || {};
+                
+                document.getElementById('total-records').textContent = 
+                    (playerData.total_records || 0).toLocaleString('ru-RU');
+                document.getElementById('unique-players').textContent = 
+                    (playerData.unique_players || 0).toLocaleString('ru-RU');
+                document.getElementById('total-scraping-runs').textContent = 
+                    (scrapingRuns.total_scraping_runs || 0).toLocaleString('ru-RU');
+                document.getElementById('total-found-saved').textContent = 
+                    `${(scrapingRuns.total_players_found || 0).toLocaleString('ru-RU')}/${(scrapingRuns.total_players_saved || 0).toLocaleString('ru-RU')}`;
+                
+                // Форматируем даты
+                const formatDate = (dateStr) => {
+                    if (!dateStr) return '-';
+                    return new Date(dateStr).toLocaleString('ru-RU', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                };
+                
+                document.getElementById('first-record').textContent = formatDate(playerData.first_record_date);
+                document.getElementById('last-record').textContent = formatDate(playerData.last_record_date);
+                
+            } catch (error) {
+                console.error('Ошибка получения статистики:', error);
+            }
+        }
+
         async function updateHistory() {
             try {
                 const response = await fetch('/api/scraping/history?limit=150');
@@ -570,7 +644,7 @@
                             const className = limitData.success ? 'limit-processed' : 'status-error';
                             return `<td class="limit-cell ${className}">✅ ${limitData.found}/${limitData.saved}</td>`;
                         } else {
-                            return `<td class="limit-cell limit-not-processed">-</td>`;
+                            return `<td class="limit-cell limit-not-processed">⚪</td>`;
                         }
                     }).join('');
                     
@@ -603,10 +677,14 @@
         document.addEventListener('DOMContentLoaded', function() {
             addLog('Панель мониторинга загружена', 'info');
             updateStatus();
+            updateStats();
             updateHistory();
             
             // Обновляем статус каждые 5 секунд
             setInterval(updateStatus, 5000);
+            
+            // Обновляем статистику каждые 30 секунд
+            setInterval(updateStats, 30000);
             
             // Обновляем историю каждые 5 минут
             setInterval(updateHistory, 5 * 60 * 1000);
