@@ -121,7 +121,7 @@ class ScrapingLogger {
             
             const now = new Date();
             const scrapingDate = now.toISOString().split('T')[0];
-            const scrapingTime = now.toTimeString().split(' ')[0];
+            const scrapingTime = now.toISOString().split('T')[1].split('.')[0]; // UTC время в формате HH:MM:SS
             
             const query = `
                 INSERT INTO scraping_logs (

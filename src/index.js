@@ -140,7 +140,7 @@ async function testScraping() {
                 player_name: player.name,
                 points: player.points,
                 guarantee: player.guarantee,
-                scraped_at: player.scraped_at || new Date()
+                scraped_at: player.scraped_at || new Date().toISOString()
             });
         });
         
@@ -539,7 +539,7 @@ export async function runFullScraping() {
                 player_name: player.name,
                 points: player.points,
                 guarantee: player.guarantee,
-                scraped_at: player.scraped_at || new Date()
+                scraped_at: player.scraped_at || new Date().toISOString()
             });
         });
         

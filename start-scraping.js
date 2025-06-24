@@ -88,7 +88,7 @@ async function runScraping() {
                 player_name: player.name,
                 points: player.points,
                 guarantee: player.guarantee,
-                scraped_at: player.scraped_at || new Date()
+                scraped_at: player.scraped_at || new Date().toISOString()
             });
         });
         

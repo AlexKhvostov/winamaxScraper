@@ -114,7 +114,7 @@ class MySQLService {
             
             for (const row of data) {
                 try {
-                    const scrapedAt = row.scraped_at || new Date();
+                    const scrapedAt = row.scraped_at || new Date().toISOString();
                     const milanDate = getMilanDateOnly(scrapedAt);
                     
                     // Проверяем на дубликат только если включена соответствующая настройка
