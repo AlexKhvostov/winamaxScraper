@@ -120,7 +120,7 @@ export class WinamaxScraper {
                     logger.warn(`Не найдены в whitelist: ${whitelistResult.missing.join(', ')}`);
                 }
             } else {
-                logger.info(`Найдено ${totalPlayersFound} игроков с >${this.minPointsFilter} очками, сохранено ${players.length} для лимита ${limitName}`);
+                logger.info(`Найдено ${totalPlayersFound} игроков с >${this.minPointsFilter} очками, подготовлено ${players.length} для сохранения в лимите ${limitName}`);
             }
             
             if (players.length === 0) {
@@ -139,18 +139,13 @@ export class WinamaxScraper {
                 scraped_at: timestamp
             }));
 
-            // Логируем успешное завершение
-            const executionTime = Date.now() - startTime;
-            if (logId) {
-                await this.scrapingLogger.logScrapingResult(logId, {
-                    playersFound: totalPlayersFound,
-                    playersSaved: players.length,
-                    databaseSuccess: true,
-                    executionTimeMs: executionTime
-                });
-            }
-
-            return result;
+            // Возвращаем данные с информацией для логирования (БЕЗ логирования здесь!)
+            return {
+                players: result,
+                totalFound: totalPlayersFound,
+                logId: logId,
+                startTime: startTime
+            };
 
         } catch (error) {
             logger.error(`Ошибка скрапинга лимита ${limitName}:`, error);
@@ -173,6 +168,7 @@ export class WinamaxScraper {
 
     async scrapeAllLimits(limitsConfig) {
         const allPlayersData = [];
+        const scrapingResults = []; // Для хранения результатов каждого лимита
 
         for (const [limitName, limitConfig] of Object.entries(limitsConfig)) {
             if (!limitConfig.active) {
@@ -181,8 +177,17 @@ export class WinamaxScraper {
             }
 
             try {
-                const players = await this.scrapeLeaderboard(limitConfig.url, limitName);
-                allPlayersData.push(...players);
+                const scrapingResult = await this.scrapeLeaderboard(limitConfig.url, limitName);
+                allPlayersData.push(...scrapingResult.players);
+                
+                // Сохраняем информацию для последующего логирования
+                scrapingResults.push({
+                    limitName: limitName,
+                    totalFound: scrapingResult.totalFound,
+                    playersReady: scrapingResult.players.length,
+                    logId: scrapingResult.logId,
+                    startTime: scrapingResult.startTime
+                });
                 
                 // Пауза между запросами
                 await new Promise(resolve => setTimeout(resolve, 2000));
@@ -194,7 +199,10 @@ export class WinamaxScraper {
             }
         }
 
-        return allPlayersData;
+        return {
+            players: allPlayersData,
+            scrapingResults: scrapingResults
+        };
     }
 
     /**
@@ -248,5 +256,45 @@ export class WinamaxScraper {
             return await this.page.content();
         }
         return null;
+    }
+
+    /**
+     * Логирует результаты скрапинга ПОСЛЕ сохранения в БД
+     * @param {Array} scrapingResults - результаты скрапинга каждого лимита  
+     * @param {Object} dbResults - результаты сохранения в БД по лимитам
+     */
+    async logScrapingResults(scrapingResults, dbResults) {
+        for (const scrapingResult of scrapingResults) {
+            const { limitName, totalFound, playersReady, logId, startTime } = scrapingResult;
+            const dbResult = dbResults[limitName];
+            
+            if (!logId) continue;
+            
+            const executionTime = Date.now() - startTime;
+            
+            if (dbResult && dbResult.success) {
+                // Успешное сохранение
+                await this.scrapingLogger.logScrapingResult(logId, {
+                    playersFound: totalFound,
+                    playersSaved: dbResult.insertedCount,
+                    databaseSuccess: true,
+                    executionTimeMs: executionTime
+                });
+                
+                logger.info(`✅ Лимит ${limitName}: найдено ${totalFound}, сохранено ${dbResult.insertedCount}, пропущено дубликатов ${dbResult.duplicatesCount}`);
+            } else {
+                // Ошибка сохранения
+                const errorMessage = dbResult ? dbResult.error : 'Неизвестная ошибка БД';
+                await this.scrapingLogger.logScrapingResult(logId, {
+                    playersFound: totalFound,
+                    playersSaved: 0,
+                    databaseSuccess: false,
+                    errorMessage: errorMessage,
+                    executionTimeMs: executionTime
+                });
+                
+                logger.error(`❌ Лимит ${limitName}: найдено ${totalFound}, ошибка сохранения - ${errorMessage}`);
+            }
+        }
     }
 } 

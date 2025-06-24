@@ -118,28 +118,54 @@ async function testScraping() {
         await database.addMilanDateColumn();
         
         // Собираем данные
-        const playersData = await scraper.scrapeAllLimits(limitsConfig);
+        const scrapingResult = await scraper.scrapeAllLimits(limitsConfig);
+        const { players: playersData, scrapingResults } = scrapingResult;
         
         if (playersData.length === 0) {
             logger.warn('⚠️ Нет данных для сохранения');
             return;
         }
         
-        // Преобразуем данные для базы данных
-        const dbData = playersData.map(player => ({
-            tournament_limit: player.limit,
-            rank: player.rank,
-            player_name: player.name,
-            points: player.points,
-            guarantee: player.guarantee,
-            scraped_at: player.scraped_at || new Date()
-        }));
+        // Группируем данные по лимитам для сохранения
+        const dataByLimit = {};
+        playersData.forEach(player => {
+            if (!dataByLimit[player.limit]) {
+                dataByLimit[player.limit] = [];
+            }
+            dataByLimit[player.limit].push({
+                tournament_limit: player.limit,
+                rank: player.rank,
+                player_name: player.name,
+                points: player.points,
+                guarantee: player.guarantee,
+                scraped_at: player.scraped_at || new Date()
+            });
+        });
         
-        // Сохраняем в базу данных
-        const savedCount = await database.insertTournamentSnapshot(dbData);
+        // Сохраняем данные по каждому лимиту отдельно
+        const dbResults = {};
+        let totalInserted = 0;
         
-        if (savedCount) {
-            logger.info('🎉 Тестовый сбор завершен успешно');
+        for (const [limitName, limitData] of Object.entries(dataByLimit)) {
+            try {
+                const result = await database.insertTournamentSnapshot(limitData);
+                dbResults[limitName] = result;
+                totalInserted += result.insertedCount;
+            } catch (error) {
+                logger.error(`Ошибка сохранения лимита ${limitName}:`, error);
+                dbResults[limitName] = {
+                    success: false,
+                    insertedCount: 0,
+                    error: error.message
+                };
+            }
+        }
+        
+        // Логируем результаты ПОСЛЕ сохранения в БД
+        await scraper.logScrapingResults(scrapingResults, dbResults);
+        
+        if (totalInserted > 0) {
+            logger.info(`🎉 Тестовый сбор завершен успешно: сохранено ${totalInserted} игроков`);
         } else {
             logger.error('❌ Ошибка сохранения данных');
         }
@@ -480,31 +506,68 @@ export async function runFullScraping() {
         await database.addMilanDateColumn();
         
         // Собираем данные
-        const playersData = await scraper.scrapeAllLimits(limitsConfig);
+        const scrapingResult = await scraper.scrapeAllLimits(limitsConfig);
+        const { players: playersData, scrapingResults } = scrapingResult;
         
         if (playersData.length === 0) {
             logger.warn('⚠️ Нет данных для сохранения');
+            
+            // Логируем пустые результаты
+            const dbResults = {};
+            activeLimits.forEach(limit => {
+                dbResults[limit] = { success: true, insertedCount: 0, duplicatesCount: 0 };
+            });
+            await scraper.logScrapingResults(scrapingResults, dbResults);
+            
             return { success: true, processed: 0, inserted: 0, skipped: 0 };
         }
         
-        // Преобразуем данные для базы данных
-        const dbData = playersData.map(player => ({
-            tournament_limit: player.limit,
-            rank: player.rank,
-            player_name: player.name,
-            points: player.points,
-            guarantee: player.guarantee,
-            scraped_at: player.scraped_at || new Date()
-        }));
+        // Группируем данные по лимитам для сохранения
+        const dataByLimit = {};
+        playersData.forEach(player => {
+            if (!dataByLimit[player.limit]) {
+                dataByLimit[player.limit] = [];
+            }
+            dataByLimit[player.limit].push({
+                tournament_limit: player.limit,
+                rank: player.rank,
+                player_name: player.name,
+                points: player.points,
+                guarantee: player.guarantee,
+                scraped_at: player.scraped_at || new Date()
+            });
+        });
         
-        // Сохраняем в базу данных
-        const result = await database.insertTournamentSnapshot(dbData);
+        // Сохраняем данные по каждому лимиту отдельно и собираем результаты
+        const dbResults = {};
+        let totalInserted = 0;
+        let totalSkipped = 0;
+        
+        for (const [limitName, limitData] of Object.entries(dataByLimit)) {
+            try {
+                const result = await database.insertTournamentSnapshot(limitData);
+                dbResults[limitName] = result;
+                totalInserted += result.insertedCount;
+                totalSkipped += result.duplicatesCount;
+            } catch (error) {
+                logger.error(`Ошибка сохранения лимита ${limitName}:`, error);
+                dbResults[limitName] = {
+                    success: false,
+                    insertedCount: 0,
+                    duplicatesCount: 0,
+                    error: error.message
+                };
+            }
+        }
+        
+        // Логируем результаты ПОСЛЕ сохранения в БД
+        await scraper.logScrapingResults(scrapingResults, dbResults);
         
         return {
             success: true,
             processed: playersData.length,
-            inserted: result.insertedCount || 0,
-            skipped: result.skippedCount || 0,
+            inserted: totalInserted,
+            skipped: totalSkipped,
             limits: activeLimits
         };
         

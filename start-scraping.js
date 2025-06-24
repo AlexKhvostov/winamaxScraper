@@ -65,28 +65,54 @@ async function runScraping() {
         logger.info(`[SCHEDULER] 📈 Сбор данных для ${activeLimits.length} лимитов: ${activeLimits.join(', ')}`);
         
         // Собираем данные
-        const playersData = await scraper.scrapeAllLimits(limitsConfig);
+        const scrapingResult = await scraper.scrapeAllLimits(limitsConfig);
+        const { players: playersData, scrapingResults } = scrapingResult;
         
         if (playersData.length === 0) {
             logger.warn('[SCHEDULER] ⚠️ Нет данных для сохранения');
             return;
         }
         
-        // Преобразуем данные для базы данных
-        const dbData = playersData.map(player => ({
-            tournament_limit: player.limit,
-            rank: player.rank,
-            player_name: player.name,
-            points: player.points,
-            guarantee: player.guarantee,
-            scraped_at: player.scraped_at || new Date()
-        }));
+        // Группируем данные по лимитам для сохранения
+        const dataByLimit = {};
+        playersData.forEach(player => {
+            if (!dataByLimit[player.limit]) {
+                dataByLimit[player.limit] = [];
+            }
+            dataByLimit[player.limit].push({
+                tournament_limit: player.limit,
+                rank: player.rank,
+                player_name: player.name,
+                points: player.points,
+                guarantee: player.guarantee,
+                scraped_at: player.scraped_at || new Date()
+            });
+        });
         
-        // Сохраняем в базу данных
-        const savedCount = await database.insertTournamentSnapshot(dbData);
+        // Сохраняем данные по каждому лимиту отдельно
+        const dbResults = {};
+        let totalInserted = 0;
+        
+        for (const [limitName, limitData] of Object.entries(dataByLimit)) {
+            try {
+                const result = await database.insertTournamentSnapshot(limitData);
+                dbResults[limitName] = result;
+                totalInserted += result.insertedCount;
+            } catch (error) {
+                logger.error(`[SCHEDULER] Ошибка сохранения лимита ${limitName}:`, error);
+                dbResults[limitName] = {
+                    success: false,
+                    insertedCount: 0,
+                    error: error.message
+                };
+            }
+        }
+        
+        // Логируем результаты ПОСЛЕ сохранения в БД
+        await scraper.logScrapingResults(scrapingResults, dbResults);
         
         const executionTime = Date.now() - startTime;
-        logger.info(`[SCHEDULER] ✅ Сбор завершен: ${savedCount} игроков сохранено за ${executionTime}мс`);
+        logger.info(`[SCHEDULER] ✅ Сбор завершен: ${totalInserted} игроков сохранено за ${executionTime}мс`);
         
         // Предупреждение если близко к полуночи
         if (timezoneInfo.isNearMidnight) {

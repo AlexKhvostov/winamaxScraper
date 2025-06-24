@@ -170,7 +170,13 @@ class MySQLService {
             // Обновляем метаданные
             await this.updateScrapingMetadata(data[0]?.tournament_limit, true);
             
-            return insertedCount > 0;
+            return {
+                success: insertedCount > 0,
+                insertedCount: insertedCount,
+                duplicatesCount: duplicatesCount,
+                errorsCount: errorsCount,
+                totalRecords: totalRecords
+            };
         } catch (error) {
             logger.error('Ошибка вставки данных в MySQL:', error);
             
@@ -179,7 +185,14 @@ class MySQLService {
                 await this.updateScrapingMetadata(data[0].tournament_limit, false, error.message);
             }
             
-            return false;
+            return {
+                success: false,
+                insertedCount: 0,
+                duplicatesCount: 0,
+                errorsCount: data.length,
+                totalRecords: data.length,
+                error: error.message
+            };
         }
     }
 
