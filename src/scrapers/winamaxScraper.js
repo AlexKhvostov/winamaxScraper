@@ -104,10 +104,8 @@ export class WinamaxScraper {
                 return playersData;
             }, minPoints);
 
-            const totalPlayers = await this.page.evaluate(() => {
-                const playerRows = document.querySelectorAll('.sc-khIgEk.hQhHpX .sc-cOifOu, .sc-khIgEk.hQhHpX .sc-jcwpoC');
-                return playerRows.length;
-            });
+            // Подсчитываем реальное количество найденных игроков (без заголовка)
+            const totalPlayersFound = allPlayers.length;
 
             // Применяем whitelist фильтрацию
             const whitelistResult = filterByWhitelist(allPlayers);
@@ -115,14 +113,14 @@ export class WinamaxScraper {
 
             // Логируем результаты
             if (whitelistResult.whitelistActive) {
-                logger.info(`Найдено ${totalPlayers} игроков всего, отфильтровано ${allPlayers.length} игроков с >${this.minPointsFilter} очками`);
+                logger.info(`Найдено ${totalPlayersFound} игроков с >${this.minPointsFilter} очками`);
                 logger.info(`Whitelist: найдено ${whitelistResult.found} из ${whitelistResult.total} отслеживаемых игроков для лимита ${limitName}`);
                 
                 if (whitelistResult.missing.length > 0) {
                     logger.warn(`Не найдены в whitelist: ${whitelistResult.missing.join(', ')}`);
                 }
             } else {
-                logger.info(`Найдено ${totalPlayers} игроков всего, отфильтровано ${players.length} игроков с >${this.minPointsFilter} очками для лимита ${limitName}`);
+                logger.info(`Найдено ${totalPlayersFound} игроков с >${this.minPointsFilter} очками, сохранено ${players.length} для лимита ${limitName}`);
             }
             
             if (players.length === 0) {
@@ -145,7 +143,7 @@ export class WinamaxScraper {
             const executionTime = Date.now() - startTime;
             if (logId) {
                 await this.scrapingLogger.logScrapingResult(logId, {
-                    playersFound: totalPlayers,
+                    playersFound: totalPlayersFound,
                     playersSaved: players.length,
                     databaseSuccess: true,
                     executionTimeMs: executionTime

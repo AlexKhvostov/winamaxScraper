@@ -62,4 +62,7 @@ temp/
 *~
 
 # Puppeteer
-.puppeteerrc.cjs 
+.puppeteerrc.cjs
+
+# Documentation with sensitive info
+doc/ 

@@ -216,6 +216,7 @@ class ScrapingLogger {
                     id,
                     scraping_date,
                     scraping_time,
+                    scraping_datetime,
                     limit_value,
                     players_found,
                     players_saved,
