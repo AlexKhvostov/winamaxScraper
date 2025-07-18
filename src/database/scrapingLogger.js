@@ -1,6 +1,7 @@
 import mysql from 'mysql2/promise';
 import { config } from '../config/database.js';
 import { logger } from '../utils/logger.js';
+import telegramNotifier from '../utils/telegramNotifier.js';
 
 class ScrapingLogger {
     constructor() {
@@ -59,6 +60,8 @@ class ScrapingLogger {
             
         } catch (error) {
             logger.error('[SCRAPING_LOGGER] Error logging scraping start:', error);
+            // Отправляем уведомление об ошибке логирования
+            await telegramNotifier.sendDatabaseError(`Ошибка логирования скрапинга: ${error.message}`);
             throw error;
         }
     }

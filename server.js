@@ -8,6 +8,7 @@ import { isScraperRunning } from './src/utils/lockFile.js';
 import { getMilanDateTime } from './src/utils/timezone.js';
 import { getAllLimitCodes } from './src/config/limits.js';
 import ScrapingLogger from './src/database/scrapingLogger.js';
+import telegramNotifier from './src/utils/telegramNotifier.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -329,8 +330,16 @@ async function runScrapingTask() {
         
         logger.info('✅ Автоматический сбор данных завершен успешно');
         
+        // Отправляем статистику каждые 240 успешных запусков
+        if (scrapingStats.successfulRuns % 240 === 0) {
+            await telegramNotifier.sendScrapingStats(scrapingStats);
+        }
+        
     } catch (error) {
         logger.error('❌ Ошибка автоматического сбора данных:', error);
+        
+        // Отправляем уведомление об ошибке скрапинга
+        await telegramNotifier.sendScrapingError(error.message);
         
         lastScrapingResult = {
             success: false,
@@ -344,6 +353,11 @@ async function runScrapingTask() {
             message: error.message,
             timestamp: new Date().toISOString()
         };
+        
+        // Отправляем уведомление о восстановлении после 3 ошибок подряд
+        if (scrapingStats.failedRuns % 3 === 0) {
+            await telegramNotifier.sendRecoveryMessage('Скрапер');
+        }
     } finally {
         isCurrentlyRunning = false;
     }
@@ -366,12 +380,15 @@ function setupCronJobs() {
 }
 
 // Запуск сервера
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     logger.info(`🌐 Сервер запущен на порту ${PORT}`);
     logger.info(`📡 API доступно по адресу: http://localhost:${PORT}/api/`);
     logger.info(`🔗 Статус: http://localhost:${PORT}/api/status`);
     logger.info(`⏰ Время сервера: ${new Date().toISOString()}`);
     logger.info(`🇮🇹 Время Милана: ${getMilanDateTime()}`);
+    
+    // Отправляем уведомление о запуске сервера
+    await telegramNotifier.sendServerStarted();
     
     // Настраиваем автоматический сбор
     setupCronJobs();
@@ -384,12 +401,14 @@ app.listen(PORT, () => {
 });
 
 // Обработка ошибок
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', async (error) => {
     logger.error('Необработанная ошибка:', error);
+    await telegramNotifier.sendCriticalError(`Необработанная ошибка: ${error.message}`);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', async (reason, promise) => {
     logger.error('Необработанное отклонение промиса:', reason);
+    await telegramNotifier.sendCriticalError(`Необработанное отклонение промиса: ${reason}`);
 });
 
 // Graceful shutdown

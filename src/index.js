@@ -18,6 +18,7 @@ import {
     printWhitelistStatus 
 } from './utils/whitelist.js';
 import { getTimezoneInfo } from './utils/timezone.js';
+import telegramNotifier from './utils/telegramNotifier.js';
 
 // Загружаем переменные окружения
 dotenv.config();
@@ -177,6 +178,8 @@ async function testScraping() {
         
     } catch (error) {
         logger.error('❌ Ошибка тестового сбора:', error);
+        // Отправляем уведомление об ошибке тестового сбора
+        await telegramNotifier.sendScrapingError(`Ошибка тестового сбора: ${error.message}`);
     }
 }
 
@@ -578,6 +581,8 @@ export async function runFullScraping() {
         
     } catch (error) {
         logger.error('❌ Ошибка полного сбора:', error);
+        // Отправляем уведомление об ошибке полного сбора
+        await telegramNotifier.sendScrapingError(`Ошибка полного сбора: ${error.message}`);
         return { success: false, error: error.message };
     } finally {
         await scraper.close();

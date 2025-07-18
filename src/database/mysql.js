@@ -2,6 +2,7 @@ import mysql from 'mysql2/promise';
 import { config } from '../config/config.js';
 import { logger } from '../utils/logger.js';
 import { getMilanDateOnly, getMilanDateTime } from '../utils/timezone.js';
+import telegramNotifier from '../utils/telegramNotifier.js';
 
 class MySQLService {
     constructor() {
@@ -35,6 +36,8 @@ class MySQLService {
             return true;
         } catch (error) {
             logger.error('Ошибка подключения к MySQL:', error);
+            // Отправляем уведомление об ошибке БД
+            await telegramNotifier.sendDatabaseError(`Ошибка подключения к MySQL: ${error.message}`);
             return false;
         }
     }

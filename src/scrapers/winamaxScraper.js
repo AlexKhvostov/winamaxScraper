@@ -5,6 +5,7 @@ import { getLimitConfig, getActiveLimits } from '../config/limits.js';
 import { filterByWhitelist } from '../utils/whitelist.js';
 import { getActiveLimitsFromFile, isLimitsFileActive } from '../utils/limitsFile.js';
 import ScrapingLogger from '../database/scrapingLogger.js';
+import telegramNotifier from '../utils/telegramNotifier.js';
 
 export class WinamaxScraper {
     constructor() {
@@ -41,6 +42,8 @@ export class WinamaxScraper {
             logger.info(`Puppeteer инициализирован. Минимальный фильтр очков: ${this.minPointsFilter}`);
         } catch (error) {
             logger.error('Ошибка инициализации Puppeteer:', error);
+            // Отправляем уведомление об ошибке инициализации
+            await telegramNotifier.sendScrapingError(`Ошибка инициализации Puppeteer: ${error.message}`);
             throw error;
         }
     }
@@ -151,6 +154,9 @@ export class WinamaxScraper {
 
         } catch (error) {
             logger.error(`Ошибка скрапинга лимита ${limitName}:`, error);
+            
+            // Отправляем уведомление об ошибке скрапинга
+            await telegramNotifier.sendScrapingError(error.message, limitName);
             
             // Логируем ошибку
             const executionTime = Date.now() - startTime;
