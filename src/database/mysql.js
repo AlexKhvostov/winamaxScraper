@@ -12,6 +12,12 @@ class MySQLService {
 
     async connect() {
         try {
+            // Проверяем настройки БД
+            if (!config.database.host) {
+                logger.warn('⚠️ База данных не настроена');
+                return false;
+            }
+            
             // Создаем пул соединений для лучшей производительности
             this.pool = mysql.createPool({
                 host: config.database.host,

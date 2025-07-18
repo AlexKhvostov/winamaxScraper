@@ -117,6 +117,16 @@ app.get('/api/health', (req, res) => {
 // API для получения истории запусков скрапера
 app.get('/api/scraping/history', async (req, res) => {
     try {
+        // Проверяем доступность БД
+        if (!process.env.MYSQL_HOST) {
+            return res.json({
+                runs: [],
+                total: 0,
+                allLimits: getAllLimitCodes(),
+                message: 'База данных не настроена'
+            });
+        }
+        
         const limit = parseInt(req.query.limit) || 150;
         const logs = await scrapingLogger.getRecentLogs(limit * 3); // Получаем больше записей для группировки
         
@@ -226,6 +236,16 @@ app.get('/api/scraping/history', async (req, res) => {
 // API для получения общей статистики
 app.get('/api/stats', async (req, res) => {
     try {
+        // Проверяем доступность БД
+        if (!process.env.MYSQL_HOST) {
+            return res.json({
+                playerData: {},
+                scrapingRuns: {},
+                limitBreakdown: [],
+                message: 'База данных не настроена'
+            });
+        }
+        
         const connection = await scrapingLogger.connect();
         
         // Получаем статистику из основной таблицы с данными игроков
@@ -336,6 +356,20 @@ async function runScrapingTask() {
         }
         
     } catch (error) {
+        // Проверяем, является ли ошибка связанной с БД
+        const isDbError = error.message.includes('ECONNRESET') || 
+                         error.message.includes('connection') ||
+                         error.message.includes('MySQL') ||
+                         error.message.includes('Can\'t add new command when connection is in closed state');
+        
+        if (isDbError) {
+            logger.warn('⚠️ Ошибка подключения к БД, продолжаем работу без сохранения данных');
+            // Отправляем уведомление об ошибке БД
+            await telegramNotifier.sendDatabaseError(`Ошибка подключения к БД: ${error.message}`);
+        } else {
+            // Отправляем уведомление об ошибке скрапинга
+            await telegramNotifier.sendScrapingError(error.message);
+        }
         logger.error('❌ Ошибка автоматического сбора данных:', error);
         
         // Отправляем уведомление об ошибке скрапинга
