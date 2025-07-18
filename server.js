@@ -354,15 +354,15 @@ function setupCronJobs() {
     // Получаем интервал из .env файла (по умолчанию 10 минут)
     const intervalMinutes = parseInt(process.env.SCRAPING_INTERVAL_MINUTES) || 10;
     
-    // Создаем cron выражение для указанного интервала
-    const cronExpression = `*/${intervalMinutes} * * * *`;
+    // Создаем cron выражение для указанного интервала со смещением в 3 минуты
+    const cronExpression = `3-59/${intervalMinutes} * * * *`;
     
     cron.schedule(cronExpression, () => {
-        logger.info(`⏰ Запуск по расписанию (каждые ${intervalMinutes} минут)`);
+        logger.info(`⏰ Запуск по расписанию (каждые ${intervalMinutes} минут, смещение 3 минуты)`);
         runScrapingTask();
     });
 
-    logger.info(`📅 Cron задача настроена: сбор данных каждые ${intervalMinutes} минут`);
+    logger.info(`📅 Cron задача настроена: сбор данных каждые ${intervalMinutes} минут со смещением 3 минуты`);
 }
 
 // Запуск сервера
