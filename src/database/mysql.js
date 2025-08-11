@@ -440,6 +440,8 @@ class MySQLService {
 
     async executeQuery(query, params = []) {
         try {
+            // Проверяем соединение перед выполнением запроса
+            await this.ensureConnection();
             const [rows] = await this.pool.execute(query, params);
             return rows;
         } catch (error) {
@@ -455,6 +457,23 @@ class MySQLService {
             connection.release();
             return true;
         } catch (error) {
+            logger.warn('❌ Ping к MySQL не прошел, соединение может быть закрыто');
+            return false;
+        }
+    }
+
+    async ensureConnection() {
+        try {
+            // Проверяем соединение
+            const isConnected = await this.ping();
+            if (!isConnected) {
+                logger.warn('🔄 Соединение с MySQL потеряно, пытаемся переподключиться...');
+                await this.connect();
+                return await this.ping();
+            }
+            return true;
+        } catch (error) {
+            logger.error('❌ Ошибка проверки соединения с MySQL:', error);
             return false;
         }
     }

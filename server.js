@@ -3,11 +3,13 @@ import cron from 'node-cron';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import { logger } from './src/utils/logger.js';
+import { createProcessLock, isProcessLocked, setupProcessLockCleanup } from './src/utils/procLock.js';
 import { runFullScraping } from './src/index.js';
 import { isScraperRunning } from './src/utils/lockFile.js';
 import { getMilanDateTime } from './src/utils/timezone.js';
 import { getAllLimitCodes } from './src/config/limits.js';
 import ScrapingLogger from './src/database/scrapingLogger.js';
+import { sendTelegramMessage } from './src/utils/telegram.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -70,6 +72,21 @@ app.get('/api/status', (req, res) => {
         location: serverLocation
     });
 });
+
+function buildServerStatusMessage() {
+    const now = new Date();
+    const startTime = new Date(serverStartTime);
+    const uptimeMinutes = Math.floor((now - startTime) / (1000 * 60));
+    const memMb = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2);
+    return [
+        '📊 Статус сервера (fallback)',
+        '',
+        `🖥️ Сервер: Winamax Analytics`,
+        `⏱️ Аптайм: ${Math.floor(uptimeMinutes/60)}ч ${uptimeMinutes%60}м`,
+        `💾 Память: ${memMb} MB`,
+        `⏰ Время: ${now.toISOString()}`
+    ].join('\n');
+}
 
 app.get('/api/scraping/status', (req, res) => {
     res.json({
@@ -316,18 +333,32 @@ async function runScrapingTask() {
 
     try {
         const result = await runFullScraping();
-        
-        lastScrapingResult = {
-            success: true,
-            timestamp: new Date().toISOString(),
-            message: 'Сбор данных завершен успешно',
-            result: result
-        };
-        
-        scrapingStats.successfulRuns++;
-        scrapingStats.lastError = null;
-        
-        logger.info('✅ Автоматический сбор данных завершен успешно');
+
+        if (result && result.success === false) {
+            // Обрабатываем логический провал (например, 0 игроков)
+            lastScrapingResult = {
+                success: false,
+                timestamp: new Date().toISOString(),
+                error: result.error || 'Сбор данных завершен с ошибкой',
+                result: result
+            };
+            scrapingStats.failedRuns++;
+            scrapingStats.lastError = {
+                message: result.error || 'Сбор данных завершен с ошибкой',
+                timestamp: new Date().toISOString()
+            };
+            logger.error(`❌ Автоматический сбор данных завершен с ошибкой: ${result.error || 'unknown'}`);
+        } else {
+            lastScrapingResult = {
+                success: true,
+                timestamp: new Date().toISOString(),
+                message: 'Сбор данных завершен успешно',
+                result: result
+            };
+            scrapingStats.successfulRuns++;
+            scrapingStats.lastError = null;
+            logger.info('✅ Автоматический сбор данных завершен успешно');
+        }
         
     } catch (error) {
         logger.error('❌ Ошибка автоматического сбора данных:', error);
@@ -363,7 +394,29 @@ function setupCronJobs() {
     });
 
     logger.info(`📅 Cron задача настроена: сбор данных каждые ${intervalMinutes} минут`);
+
+    // Параллельно: часовой статус прямо из сервера (fallback к боту)
+    const statusHours = parseInt(process.env.TELEGRAM_STATUS_INTERVAL_HOURS) || 8;
+    const statusCron = `0 */${statusHours} * * *`;
+    cron.schedule(statusCron, async () => {
+        try {
+            const msg = buildServerStatusMessage();
+            await sendTelegramMessage(msg);
+            logger.info('✅ Статус отправлен через сервер (fallback)');
+        } catch (e) {
+            logger.warn('⚠️ Не удалось отправить статус через сервер:', e.message);
+        }
+    }, { timezone: 'Europe/Rome' });
+    logger.info(`📅 Cron статус (fallback) настроен: каждые ${statusHours} часов`);
 }
+
+// Одноэкземплярный запуск сервера
+if (isProcessLocked('scraper-server')) {
+    logger.error('❌ Обнаружен уже запущенный сервер (lock scraper-server). Выходим.');
+    process.exit(1);
+}
+createProcessLock('scraper-server');
+setupProcessLockCleanup('scraper-server');
 
 // Запуск сервера
 app.listen(PORT, () => {

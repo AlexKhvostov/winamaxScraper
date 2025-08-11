@@ -516,15 +516,15 @@ export async function runFullScraping() {
         
         if (playersData.length === 0) {
             logger.warn('⚠️ Нет данных для сохранения');
-            
-            // Логируем пустые результаты
+
+            // Если ни один лимит не вернул игроков, считаем как ошибку скрапинга для каждого лимита
             const dbResults = {};
             activeLimits.forEach(limit => {
-                dbResults[limit] = { success: true, insertedCount: 0, duplicatesCount: 0 };
+                dbResults[limit] = { success: false, insertedCount: 0, duplicatesCount: 0, error: '0 players found' };
             });
             await scraper.logScrapingResults(scrapingResults, dbResults);
-            
-            return { success: true, processed: 0, inserted: 0, skipped: 0 };
+
+            return { success: false, processed: 0, inserted: 0, skipped: 0, error: '0 players found' };
         }
         
         // Группируем данные по лимитам для сохранения

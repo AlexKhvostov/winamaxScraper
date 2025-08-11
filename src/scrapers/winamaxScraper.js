@@ -274,6 +274,19 @@ export class WinamaxScraper {
             
             const executionTime = Date.now() - startTime;
             
+            // Если не найдено ни одного игрока, считаем это ошибкой скрапинга
+            if (totalFound === 0) {
+                await this.scrapingLogger.logScrapingResult(logId, {
+                    playersFound: 0,
+                    playersSaved: 0,
+                    databaseSuccess: false,
+                    errorMessage: '0 players found on the page',
+                    executionTimeMs: executionTime
+                });
+                logger.error(`❌ Лимит ${limitName}: найдено 0 игроков — считаем как ошибку`);
+                continue;
+            }
+
             if (dbResult && dbResult.success) {
                 // Успешное сохранение
                 await this.scrapingLogger.logScrapingResult(logId, {
@@ -286,7 +299,7 @@ export class WinamaxScraper {
                 logger.info(`✅ Лимит ${limitName}: найдено ${totalFound}, сохранено ${dbResult.insertedCount}, пропущено дубликатов ${dbResult.duplicatesCount}`);
             } else {
                 // Ошибка сохранения
-                const errorMessage = dbResult ? dbResult.error : 'Неизвестная ошибка БД';
+                const errorMessage = dbResult ? dbResult.error : 'Ошибка сохранения результатов';
                 await this.scrapingLogger.logScrapingResult(logId, {
                     playersFound: totalFound,
                     playersSaved: 0,

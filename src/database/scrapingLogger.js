@@ -166,7 +166,10 @@ class ScrapingLogger {
      */
     async getScrapingStats(limitValue = null, days = 7) {
         try {
-            await this.connect();
+            // Проверяем соединение перед запросом
+            if (!this.connection) {
+                await this.connect();
+            }
             
             let query = `
                 SELECT 
@@ -194,12 +197,55 @@ class ScrapingLogger {
             query += ' GROUP BY scraping_date, limit_value ORDER BY scraping_date DESC, limit_value';
             
             const [rows] = await this.connection.execute(query, params);
-            
             return rows;
             
         } catch (error) {
+            // Если ошибка связана с закрытым соединением, пробуем переподключиться
+            if (error.message.includes('closed state') || error.message.includes('ECONNRESET')) {
+                logger.warn('[SCRAPING_LOGGER] Соединение закрыто, переподключаемся...');
+                try {
+                    // Сбрасываем соединение и переподключаемся
+                    this.connection = null;
+                    await this.connect();
+                    
+                    // Повторная попытка запроса
+                    let query = `
+                        SELECT 
+                            scraping_date,
+                            limit_value,
+                            COUNT(*) as total_runs,
+                            SUM(players_found) as total_players_found,
+                            SUM(players_saved) as total_players_saved,
+                            SUM(CASE WHEN database_success = 1 THEN 1 ELSE 0 END) as successful_runs,
+                            SUM(CASE WHEN database_success = 0 THEN 1 ELSE 0 END) as failed_runs,
+                            AVG(execution_time_ms) as avg_execution_time,
+                            MAX(execution_time_ms) as max_execution_time,
+                            MIN(execution_time_ms) as min_execution_time
+                        FROM scraping_logs 
+                        WHERE scraping_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+                    `;
+                    
+                    const params = [days];
+                    
+                    if (limitValue) {
+                        query += ' AND limit_value = ?';
+                        params.push(limitValue);
+                    }
+                    
+                    query += ' GROUP BY scraping_date, limit_value ORDER BY scraping_date DESC, limit_value';
+                    
+                    const [rows] = await this.connection.execute(query, params);
+                    logger.info('[SCRAPING_LOGGER] Переподключение успешно, статистика получена');
+                    return rows;
+                    
+                } catch (retryError) {
+                    logger.error('[SCRAPING_LOGGER] Ошибка после переподключения:', retryError);
+                    return []; // Возвращаем пустой массив вместо ошибки
+                }
+            }
+            
             logger.error('[SCRAPING_LOGGER] Error getting scraping stats:', error);
-            throw error;
+            return []; // Возвращаем пустой массив вместо ошибки
         }
     }
 
@@ -209,7 +255,10 @@ class ScrapingLogger {
      */
     async getRecentLogs(limit = 50) {
         try {
-            await this.connect();
+            // Проверяем соединение перед запросом
+            if (!this.connection) {
+                await this.connect();
+            }
             
             const query = `
                 SELECT 
@@ -230,12 +279,48 @@ class ScrapingLogger {
             `;
             
             const [rows] = await this.connection.execute(query, [limit]);
-            
             return rows;
             
         } catch (error) {
+            // Если ошибка связана с закрытым соединением, пробуем переподключиться
+            if (error.message.includes('closed state') || error.message.includes('ECONNRESET')) {
+                logger.warn('[SCRAPING_LOGGER] Соединение закрыто, переподключаемся...');
+                try {
+                    // Сбрасываем соединение и переподключаемся
+                    this.connection = null;
+                    await this.connect();
+                    
+                    // Повторная попытка запроса
+                    const query = `
+                        SELECT 
+                            id,
+                            scraping_date,
+                            scraping_time,
+                            scraping_datetime,
+                            limit_value,
+                            players_found,
+                            players_saved,
+                            database_success,
+                            error_message,
+                            execution_time_ms,
+                            created_at
+                        FROM scraping_logs 
+                        ORDER BY id DESC 
+                        LIMIT ?
+                    `;
+                    
+                    const [rows] = await this.connection.execute(query, [limit]);
+                    logger.info('[SCRAPING_LOGGER] Переподключение успешно, данные получены');
+                    return rows;
+                    
+                } catch (retryError) {
+                    logger.error('[SCRAPING_LOGGER] Ошибка после переподключения:', retryError);
+                    return []; // Возвращаем пустой массив вместо ошибки
+                }
+            }
+            
             logger.error('[SCRAPING_LOGGER] Error getting recent logs:', error);
-            throw error;
+            return []; // Возвращаем пустой массив вместо ошибки
         }
     }
 

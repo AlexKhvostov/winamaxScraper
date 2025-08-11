@@ -1,6 +1,11 @@
 /**
  * Конфигурация лимитов турниров Expresso
+ * 
+ * стартовая ссылка
+ * https://www.winamax.fr/les-challenges-winamax_expresso_introduction
+ * 
  */
+
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -8,67 +13,67 @@ dotenv.config();
 export const EXPRESSO_LIMITS = {
     '0.25': {
         name: '0.25€',
-        url: 'https://www.winamax.fr/en/challenges/expresso/0.25/',
+        url: 'https://www.winamax.fr/challenges/expresso/0.25/',
         enabled: false,
         description: 'Микролимит 25 центов'
     },
     '0.5': {
         name: '0.50€', 
-        url: 'https://www.winamax.fr/en/challenges/expresso/0.5/',
+        url: 'https://www.winamax.fr/challenges/expresso/0.5/',
         enabled: false,
         description: 'Микролimит 50 центов'
     },
     '1-1.5': {
         name: '1-1.5€',
-        url: 'https://www.winamax.fr/en/challenges/expresso/1-1.5/',
+        url: 'https://www.winamax.fr/challenges/expresso/1-1.5/',
         enabled: false,
         description: 'Низкий лимит 1-1.5€'
     },
     '2-3': {
         name: '2-3€',
-        url: 'https://www.winamax.fr/en/challenges/expresso/2-3/',
+        url: 'https://www.winamax.fr/challenges/expresso/2-3/',
         enabled: false,
         description: 'Низкий лимит 2-3€'
     },
     '4-7': {
         name: '4-7€',
-        url: 'https://www.winamax.fr/en/challenges/expresso/4-7/',
+        url: 'https://www.winamax.fr/challenges/expresso/4-7/',
         enabled: false,
         description: 'Средний лимит 4-7€'
     },
     '8-15': {
         name: '8-15€',
-        url: 'https://www.winamax.fr/en/challenges/expresso/8-15/',
+        url: 'https://www.winamax.fr/challenges/expresso/8-15/',
         enabled: false,
         description: 'Средний лимит 8-15€'
     },
     '16-25': {
         name: '16-25€',
-        url: 'https://www.winamax.fr/en/challenges/expresso/16-25/',
+        url: 'https://www.winamax.fr/challenges/expresso/16-25/',
         enabled: false, // Будет обновлено из .env
         description: 'Высокий лимит 16-25€'
     },
     '50': {
         name: '50€',
-        url: 'https://www.winamax.fr/en/challenges/expresso/50/',
+        url: 'https://www.winamax.fr/challenges/expresso/50/',
         enabled: false, // Будет обновлено из .env
         description: 'Высокий лимит 50€'
     },
     '100': {
         name: '100€',
-        url: 'https://www.winamax.fr/en/challenges/expresso/100/',
+        url: 'https://www.winamax.fr/challenges/expresso/100/',
         enabled: false, // Будет обновлено из .env
         description: 'Премиум лимит 100€'
     },
     '250': {
         name: '250€',
-        url: 'https://www.winamax.fr/en/challenges/expresso/250/',
+        url: 'https://www.winamax.fr/challenges/expresso/250/',
         enabled: false,
         description: 'Премиум лимит 250€'
     },
     '500': {
         name: '500€',
-        url: 'https://www.winamax.fr/en/challenges/expresso/500/',
+        url: 'https://www.winamax.fr/challenges/expresso/500/',
         enabled: false,
         description: 'Высший лимит 500€'
     }

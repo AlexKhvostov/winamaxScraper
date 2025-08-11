@@ -1,4 +1,5 @@
 import winston from 'winston';
+import 'winston-daily-rotate-file';
 import { config } from '../config/config.js';
 
 const { combine, timestamp, printf, colorize, errors } = winston.format;
@@ -27,23 +28,23 @@ export const logger = winston.createLogger({
             )
         }),
         
-        // Файл для всех логов
-        new winston.transports.File({
-            filename: 'logs/combined.log',
-            format: combine(
-                timestamp(),
-                customFormat
-            )
+        // Ротация файлов логов
+        new winston.transports.DailyRotateFile({
+            filename: 'logs/combined-%DATE%.log',
+            datePattern: 'YYYY-MM-DD',
+            zippedArchive: true,
+            maxSize: `${config.logging.maxSizeMB}m`,
+            maxFiles: config.logging.maxFiles,
+            format: combine(timestamp(), customFormat)
         }),
-        
-        // Отдельный файл для ошибок
-        new winston.transports.File({
-            filename: 'logs/error.log',
+        new winston.transports.DailyRotateFile({
+            filename: 'logs/error-%DATE%.log',
+            datePattern: 'YYYY-MM-DD',
             level: 'error',
-            format: combine(
-                timestamp(),
-                customFormat
-            )
+            zippedArchive: true,
+            maxSize: `${config.logging.maxSizeMB}m`,
+            maxFiles: config.logging.maxFiles,
+            format: combine(timestamp(), customFormat)
         })
     ]
 });
