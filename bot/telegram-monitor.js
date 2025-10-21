@@ -15,8 +15,8 @@ import { sendServerStatus as rptSendStatus, sendDailyReport as rptSendDaily } fr
 class TelegramMonitor {
     constructor() {
         // Настройки из переменных окружения или значения по умолчанию
-        this.botToken = process.env.TELEGRAM_BOT_TOKEN || '7967034577:AAGhXcdE6ghSvFq_fjSY5oFw-lGJBmb-muE';
-        this.chatId = process.env.TELEGRAM_CHAT_ID || '287536885';
+        this.botToken = process.env.TELEGRAM_BOT_TOKEN || '';
+        this.chatId = process.env.TELEGRAM_CHAT_ID || '';
         this.statusIntervalHours = parseInt(process.env.TELEGRAM_STATUS_INTERVAL_HOURS) || 8;
         this.monitoringIntervalMinutes = parseInt(process.env.TELEGRAM_MONITORING_INTERVAL_MINUTES) || 3;
         this.dailyReportHour = parseInt(process.env.TELEGRAM_DAILY_REPORT_HOUR) || 10;
@@ -74,7 +74,7 @@ class TelegramMonitor {
 
             // Немедленная отправка статуса при старте, чтобы не ждать ближайшего тика cron
             logger.info('⏱️ Немедленная отправка статуса при старте бота');
-            await this.sendServerStatus();
+                await this.sendServerStatus();
             this.lastStatusSentAt = Date.now();
 
             setupSchedules(this);

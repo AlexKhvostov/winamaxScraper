@@ -9,9 +9,16 @@ yarn-error.log*
 .env.local
 .env.production
 
-# Logs
+# Logs (rotate files and legacy)
 logs/
 *.log
+logs/*.log
+logs/*.gz
+
+# Runtime locks
+*.lock
+scraper-server.lock
+telegram-bot.lock
 
 # Runtime data
 pids/
@@ -64,5 +71,68 @@ temp/
 # Puppeteer
 .puppeteerrc.cjs
 
-# Documentation with sensitive info
-doc/ 
+# Documentation with sensitive info (allow public docs, deny secrets)
+# doc/
+
+# Security - Sensitive data patterns
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+*.p7b
+*.p7c
+*.p7s
+*.p8
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.truststore
+
+# Environment files with secrets
+.env.*
+!.env.example
+!.env.template
+!.env.sample
+
+# Configuration files with secrets
+config.json
+secrets.json
+credentials.json
+auth.json
+
+# Database dumps
+*.sql
+*.dump
+*.backup
+
+# Logs that might contain sensitive data
+logs/
+*.log
+*.log.*
+
+# Temporary files that might contain secrets
+tmp/
+temp/
+.tmp/
+.temp/
+
+# IDE files that might contain secrets
+.vscode/settings.json
+.idea/workspace.xml
+.idea/encodings.xml
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
